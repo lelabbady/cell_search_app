@@ -1,9 +1,10 @@
 import logging
 
-from dash_connectivity_viewer.common.lookup_utilities import make_client
 from nglui import statebuilder
-from sklearn import preprocessing
-from sklearn.neighbors import KDTree
+
+from cell_search.config import FEATURE_DICT, SOMA_METRICS
+from cell_search.data_access import get_client_state, get_nucleus_table
+from cell_search.services import cell_lookup, neighbor_search, neuroglancer
 
 logger = logging.getLogger(__name__)
 
@@ -12,70 +13,25 @@ Utility functions for cell search and analysis in connectomics data.
 This module provides tools for finding similar cells based on morphological features,
 managing cell IDs, and generating visualization links for neuroglancer.
 Global Variables:
-    _client: Lazily initialized CAVEclient instance for accessing minnie65_public dataset
-    _seg_source: Segmentation data source from the client
-    _img_source: Image data source from the client
-    _nuc_df: DataFrame containing nucleus detection data with soma information
     soma_metrics: List of morphological feature names for soma analysis
     feature_dict: Dictionary mapping feature set names to feature lists
 """
 
-_client = None
-_seg_source = None
-_img_source = None
-_nuc_df = None
-
 NUCLEUS_TABLE_RESOLUTION = (1000.0, 1000.0, 1000.0)
 VIEWER_RESOLUTION = (4.0, 4.0, 40.0)
 
-soma_metrics = [
-    "soma_depth_y",
-    "nucleus_volume_um",
-    "nucleus_area_um",
-    "nuclear_area_to_volume_ratio",
-    "nuclear_folding_area_um",
-    "fraction_nuclear_folding",
-    "nucleus_to_soma_ratio",
-    "soma_volume_um",
-    "soma_area_um",
-    "soma_to_nucleus_center_dist",
-    "soma_area_to_volume_ratio",
-    "soma_synapse_number",
-    "soma_synapse_density_um",
-]
-
-feature_dict = {"soma_metrics": soma_metrics}
+soma_metrics = SOMA_METRICS
+feature_dict = FEATURE_DICT
 
 
 def _get_client_state():
-    """Initialize the client and source metadata on first use."""
-    global _client, _seg_source, _img_source
-
-    if _client is None:
-        _client = make_client(
-            datastack="minnie65_public",
-            server_address="https://global.daf-apis.com",
-            materialize_version=None,
-        )
-        _seg_source = _client.info.segmentation_source()
-        _img_source = _client.info.image_source()
-
-    return _client, _seg_source, _img_source
+    """Compatibility wrapper for data_access.get_client_state."""
+    return get_client_state()
 
 
 def _get_nucleus_table():
-    """Load the nucleus lookup table on first use."""
-    global _nuc_df
-
-    if _nuc_df is None:
-        client, _, _ = _get_client_state()
-        _nuc_df = client.materialize.query_view(
-            "nucleus_detection_lookup_v1",
-            split_positions=True,
-            desired_resolution=(1000, 1000, 1000),
-        )
-
-    return _nuc_df
+    """Compatibility wrapper for data_access.get_nucleus_table."""
+    return get_nucleus_table()
 
 
 def _extract_xyz_from_row(row):
@@ -113,16 +69,7 @@ def get_nuc_id_from_seg_id(cell_id):
         str: Error message if no nucleus found or multiple nuclei found
     """
     nuc_df = _get_nucleus_table()
-    seg_id = int(cell_id)
-    nuc_id = nuc_df.query("pt_root_id == @seg_id").id.tolist()
-
-    if len(nuc_id) == 0:
-        return "Error: No nucleus found. Please use the most recent pt_root_id."
-    if len(nuc_id) > 1:
-        return "Error: Multiple nuclei found for this pt_root_id. Please refine your input."
-
-    cell_id = nuc_id[0]
-    return cell_id
+    return cell_lookup.get_nuc_id_from_seg_id(cell_id=cell_id, nuc_df=nuc_df)
 
 
 def get_latest_seg_ids(nuc_ids):
@@ -134,11 +81,7 @@ def get_latest_seg_ids(nuc_ids):
         list: List of corresponding pt_root_ids (segment IDs)
     """
     nuc_df = _get_nucleus_table()
-    updated_ids = []
-    for n in nuc_ids:
-        seg_id = nuc_df.query("id == @n").pt_root_id.tolist()[0]
-        updated_ids.append(seg_id)
-    return updated_ids
+    return cell_lookup.get_latest_seg_ids(nuc_ids=nuc_ids, nuc_df=nuc_df)
 
 
 def find_nearest_neighbors(df, cell_id, feature_set, n_neighbors):
@@ -158,37 +101,13 @@ def find_nearest_neighbors(df, cell_id, feature_set, n_neighbors):
             - broad_distances (array): Distances to a broader set of neighbors
     """
 
-    df = df.reset_index(drop=True)  # reset index to avoid issues with KDTree
-    feature_values = feature_dict[feature_set]
-    cell_features = df[feature_values].to_numpy()  # convert to numpy array
-
-    # Normalize the features
-    scaler = preprocessing.StandardScaler().fit(cell_features)
-    cell_features_normalized = scaler.transform(cell_features)
-    n_features = len(feature_values)
-    cell_id = int(cell_id)  # convert to int
-
-    # KDTree on high dimensional feature space
-    kdt = KDTree(cell_features_normalized, leaf_size=30, metric="euclidean")
-
-    # Id of our cell of interest
-    idx = df.query("nucleus_id == @cell_id").index[0]
-    X = cell_features_normalized[idx, :].reshape(
-        1, n_features
-    )  # corresponding feature vector for that cell
-
-    n_cells = cell_features_normalized.shape[0]
-    # Query for the top 20 nearest neighbors
-    all_distances, all_idxs = kdt.query(X, k=n_cells, return_distance=True)
-    broad_distances = all_distances[0][: (n_neighbors * 10) + 1]
-    similar_idxs = all_idxs[0][
-        : n_neighbors + 1
-    ]  # including the first one, which is the cell itself
-    similar_neurons = df.soma_id.iloc[similar_idxs].tolist()
-    similar_neuron_nuc_ids = df.nucleus_id.iloc[similar_idxs].tolist()
-    logger.info("similar neurons: %s", similar_neurons)
-
-    return similar_neuron_nuc_ids, similar_neurons, broad_distances
+    return neighbor_search.find_nearest_neighbors(
+        df=df,
+        cell_id=cell_id,
+        feature_set=feature_set,
+        n_neighbors=n_neighbors,
+        feature_dict=feature_dict,
+    )
 
 
 def get_neuroglancer_link(segment_ids=None):
@@ -203,34 +122,14 @@ def get_neuroglancer_link(segment_ids=None):
         str: URL for neuroglancer viewer with the specified segments
     """
 
-    if segment_ids is None:
-        segment_ids = []
-
-    client, seg_source, img_source = _get_client_state()
-    center_position = None
-    if segment_ids:
-        first_seg_id = int(segment_ids[0])
-        nuc_df = _get_nucleus_table()
-        row_match = nuc_df.query("pt_root_id == @first_seg_id")
-        if not row_match.empty:
-            raw_position = _extract_xyz_from_row(row_match.iloc[0])
-            center_position = _scale_position_to_viewer(raw_position)
-
-    viewer_state = (
-        statebuilder.ViewerState(
-            dimensions=[4, 4, 40],
-            position=center_position,
-            infer_coordinates=False,
-        )
-        .add_image_layer(source=img_source, name="emdata")
-        .add_segmentation_layer(
-            source=seg_source,
-            name="seg",
-            segments=segment_ids,
-        )
+    return neuroglancer.get_neuroglancer_link(
+        segment_ids=segment_ids,
+        client_state_getter=_get_client_state,
+        nucleus_table_getter=_get_nucleus_table,
+        viewer_state_class=statebuilder.ViewerState,
+        extract_xyz_fn=_extract_xyz_from_row,
+        scale_position_fn=_scale_position_to_viewer,
     )
-    url = viewer_state.to_url(client=client)
-    return url
 
 
 if __name__ == "__main__":
