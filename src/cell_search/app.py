@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+from pathlib import Path
 
 import dash
 import flask
@@ -14,24 +15,13 @@ from dash import dcc, html
 from cell_search import utils
 from cell_search.callbacks import register_callbacks
 from cell_search.config import resolve_data_path
+from cell_search.data_access import configure_data_access
 
 logger = logging.getLogger(__name__)
 
 
-def create_dash_app(data_path: str | None = None):
-    """Create and return the configured Dash app instance."""
-    resolved_data_path = resolve_data_path(data_path)
-    logger.info("Loading UMAP data from %s", resolved_data_path)
-    umap_data = pd.read_parquet(resolved_data_path)
-
-    if (
-        "umap_embedding_x" not in umap_data.columns
-        or "umap_embedding_y" not in umap_data.columns
-    ):
-        raise ValueError(
-            "The UMAP data must contain 'umap_embedding_x' and 'umap_embedding_y' columns."
-        )
-
+def _build_default_figures(umap_data: pd.DataFrame):
+    """Build default scatter and neighbor figures used by the layout."""
     default_scatter_fig = px.scatter(
         umap_data,
         x="umap_embedding_x",
@@ -53,15 +43,74 @@ def create_dash_app(data_path: str | None = None):
     default_neighbor_fig = px.scatter(x=[0], y=[0])
     default_neighbor_fig.update_traces(marker=dict(size=2, opacity=0.0))
     default_neighbor_fig.update_layout(xaxis_showgrid=False, yaxis_showgrid=False)
+    return default_scatter_fig, default_neighbor_fig
 
-    app = dash.Dash(__name__, prevent_initial_callbacks=True)
 
-    @app.server.before_request
+def _should_inject_auth_token(server) -> bool:
+    """Decide whether to inject flask.g.auth_token for local/PoC execution."""
+    if server is None:
+        return True
+    return os.environ.get("AUTH_DISABLED", "false").lower() == "true"
+
+
+def _register_auth_token_hook(server) -> None:
+    """Register a before-request hook once per Flask server."""
+    if getattr(server, "_cell_search_auth_hook_registered", False):
+        return
+
+    @server.before_request
     def set_auth_token():
-        """Inject request-scoped auth token so make_client reads flask.g like deployed apps."""
+        """Inject request-scoped auth token so make_client reads flask.g token."""
         flask.g.auth_token = os.environ.get("CAVE_TOKEN")
 
-    app.css.append_css({"external_url": "/assets/dash_style.css"})
+    server._cell_search_auth_hook_registered = True
+
+
+def create_app(
+    name: str,
+    config: dict | None = None,
+    server=None,
+    url_base_pathname: str | None = None,
+    assets_folder: str | None = None,
+    meta_tags: list[dict[str, str]] | None = None,
+):
+    """Create a Dash app compatible with dash_on_flask's app-factory contract."""
+    cfg = config or {}
+    data_path = cfg.get("data_path")
+    resolved_data_path = resolve_data_path(data_path)
+    configure_data_access(
+        datastack=cfg.get("datastack_name", "minnie65_public"),
+        server_address=cfg.get("server_address", "https://global.daf-apis.com"),
+    )
+    logger.info("Loading UMAP data from %s", resolved_data_path)
+    umap_data = pd.read_parquet(resolved_data_path)
+
+    if (
+        "umap_embedding_x" not in umap_data.columns
+        or "umap_embedding_y" not in umap_data.columns
+    ):
+        raise ValueError(
+            "The UMAP data must contain 'umap_embedding_x' and 'umap_embedding_y' columns."
+        )
+
+    default_scatter_fig, default_neighbor_fig = _build_default_figures(umap_data)
+
+    resolved_assets_folder = assets_folder or str(
+        Path(__file__).resolve().parent / "assets"
+    )
+    app = dash.Dash(
+        name,
+        server=server,
+        url_base_pathname=url_base_pathname,
+        assets_folder=resolved_assets_folder,
+        meta_tags=meta_tags,
+        prevent_initial_callbacks=True,
+    )
+
+    flask_server = server or app.server
+    if _should_inject_auth_token(server):
+        _register_auth_token_hook(flask_server)
+
     app.title = "Cell Search App"
 
     app.layout = html.Div(
@@ -186,6 +235,11 @@ def create_dash_app(data_path: str | None = None):
     )
 
     return app
+
+
+def create_dash_app(data_path: str | None = None):
+    """Create and return the configured standalone Dash app instance."""
+    return create_app(__name__, config={"data_path": data_path})
 
 
 def get_dash_app():
