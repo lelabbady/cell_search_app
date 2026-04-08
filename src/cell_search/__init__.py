@@ -1,3 +1,14 @@
-"""A library for a cell serach app which allows users to search an embedding for similar cells based on a growing suite of feature sets."""
+"""Cell search package for embedding-based similar-cell workflows."""
+
+from .app import create_app, create_dash_app, get_dash_app
+from .data_access import configure_data_access
 
 __version__ = "0.0.1"
+
+__all__ = [
+    "__version__",
+    "configure_data_access",
+    "create_app",
+    "create_dash_app",
+    "get_dash_app",
+]
