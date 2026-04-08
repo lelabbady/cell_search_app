@@ -18,39 +18,19 @@ This repository uses uv for dependency management and poe for tasks.
 uv sync
 ```
 
-## Quick Start
+## Deployment
 
-1. Set environment variables (see .env.example for a template).
-2. Run the standalone app.
-3. Open http://localhost:8050.
+This package can run as a standalone local app, in Docker, or embedded in a Flask host application.
 
-```bash
-export CELL_SEARCH_DATA_PATH=/absolute/path/to/microns_SomaData_AllCells_v661.parquet
-export CAVE_TOKEN=<your-token>
-cell-search
-```
+## Execution Modes
 
-For a full onboarding guide, see documentation pages:
+This package supports three execution modes via the app factory in `src/cell_search/app.py`:
 
-1. docs/installation.md
-2. docs/quickstart.md
-3. docs/configuration.md
-4. docs/authentication.md
-5. docs/troubleshooting.md
+1. **Standalone (local)**: `create_dash_app(data_path=None)` launched by `scripts/Cell_Search_App.py`.
+2. **Docker deployment**: `create_dash_app(data_path=None)` launched in a containerized environment.
+3. **Embedded in dash_on_flask**: `create_app(name, config=None, server=None, ...)` integrates as a registered Dash app within a multi-app Flask host.
 
-## Run Modes
-
-This package supports two execution modes:
-
-1. Standalone cell_search app (this repository owns runtime and Docker).
-2. Embedded app inside dash_on_flask (cell_search imported as a package app factory).
-
-Both modes are supported by the app factory in `src/cell_search/app.py`:
-
-1. `create_dash_app(data_path=None)` for standalone usage.
-2. `create_app(name, config=None, server=None, ...)` for dash_on_flask-compatible embedding.
-
-## Standalone cell_search (Local)
+## Standalone (Local)
 
 ```bash
 # Optional: set custom parquet path
@@ -60,12 +40,12 @@ export CELL_SEARCH_DATA_PATH=/absolute/path/to/microns_SomaData_AllCells_v661.pa
 export CAVE_TOKEN=<your-token>
 
 # Run standalone app
-cell-search
+uv run python scripts/Cell_Search_App.py
 ```
 
 Default URL: `http://localhost:8050`
 
-## Standalone cell_search (Docker)
+## Docker Deployment
 
 ```bash
 export CAVE_TOKEN=<your-token>
@@ -87,10 +67,10 @@ before launching Docker.
 Use this mode when validating integration with a multi-app Flask host.
 
 1. In dash_on_flask, add `cell_search.create_app` into `DASH_DATASTACK_SUPPORT` for the target datastack.
-2. Install this package into dash_on_flask environment (editable install recommended for POC):
+2. Install this package into the dash_on_flask environment from PyPI:
 
 ```bash
-pip install -e /path/to/cell_search_app
+pip install cell_search
 ```
 
 3. Provide runtime environment in dash_on_flask:
