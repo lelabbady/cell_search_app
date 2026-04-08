@@ -81,3 +81,16 @@ def test_auth_token_hook_skipped_when_auth_enabled(monkeypatch) -> None:
     with server.test_request_context("/"):
         server.preprocess_request()
         assert not hasattr(flask.g, "auth_token")
+
+
+def test_create_dash_app_standalone_builds_flask_server(monkeypatch) -> None:
+    monkeypatch.setattr(app_module.pd, "read_parquet", lambda _path: _build_umap_df())
+    monkeypatch.setattr(
+        app_module,
+        "register_callbacks",
+        lambda app, **kwargs: SimpleNamespace(app=app, **kwargs),
+    )
+
+    app = app_module.create_dash_app(data_path="/tmp/test.parquet")
+
+    assert isinstance(app.server, flask.Flask)

@@ -98,16 +98,17 @@ def create_app(
     resolved_assets_folder = assets_folder or str(
         Path(__file__).resolve().parent / "assets"
     )
+    dash_server = True if server is None else server
     app = dash.Dash(
         name,
-        server=server,
+        server=dash_server,
         url_base_pathname=url_base_pathname,
         assets_folder=resolved_assets_folder,
         meta_tags=meta_tags,
         prevent_initial_callbacks=True,
     )
 
-    flask_server = server or app.server
+    flask_server = app.server if server is None else server
     if _should_inject_auth_token(server):
         _register_auth_token_hook(flask_server)
 
