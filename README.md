@@ -100,40 +100,6 @@ uv sync
 poe lab
 ```
 
-### Running Tests
-
-```bash
-poe test
-```
-
-### Building Documentation
-
-```bash
-poe doc-preview
-```
-
-### Versioning
-
-```bash
-# Dry run to see what will change
-poe drybump patch
-
-# Actually bump the version
-poe bump patch  # or minor, or major
-```
-
-
-
-## Profiling
-
-```bash
-# Profile with scalene (CPU + memory)
-poe profile-all <your script>
-
-# Profile with pyinstrument (CPU only, nicer output)
-poe profile <your script>
-```
-
 ## License
 
 MIT License - see LICENSE file for details.
