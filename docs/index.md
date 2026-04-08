@@ -20,9 +20,3 @@ Cell Search can run in two supported modes:
 ## Refactor Status
 
 The application has been reorganized to align with the dash_connectivity_viewer ecosystem while preserving current behavior.
-
-Use the following pages for implementation details:
-
-1. Architecture: module boundaries and runtime assembly path.
-2. Compatibility and Deprecation: temporary wrappers and removal criteria.
-3. Reorg Baseline Checklist: parity checks for local and Docker verification.

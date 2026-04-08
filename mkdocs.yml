@@ -10,11 +10,6 @@ nav:
 - Configuration: configuration.md
 - Authentication: authentication.md
 - Troubleshooting: troubleshooting.md
-- Architecture: architecture.md
-- Compatibility and Deprecation: compatibility_and_deprecation.md
-- Function Reference:
-    - reference/api.md
-- Changelog: changelog.md
 
 
 theme:
