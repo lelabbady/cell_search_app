@@ -5,6 +5,13 @@ repo_name: lelabbady/cell_search
 
 nav:
 - About: index.md
+- Installation: installation.md
+- Quick Start: quickstart.md
+- Configuration: configuration.md
+- Authentication: authentication.md
+- Troubleshooting: troubleshooting.md
+- Architecture: architecture.md
+- Compatibility and Deprecation: compatibility_and_deprecation.md
 - Function Reference:
     - reference/api.md
 - Changelog: changelog.md

@@ -7,7 +7,8 @@ app = create_dash_app()
 # Run the app
 if __name__ == "__main__":
     app.run(host=DEFAULT_HOST, port=DEFAULT_PORT, debug=True)
-from cell_search.config import DEFAULT_HOST, DEFAULT_PORT, resolve_data_path
+
+
 
 
 

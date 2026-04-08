@@ -5,11 +5,15 @@ build-backend = "uv_build"
 [project]
 name = "cell_search"
 version = "0.0.1"
-description = "A library for a cell serach app which allows users to search an embedding for similar cells based on a growing suite of feature sets."
-readme = "README.md"
+description = "A library for a cell search app that helps users find similar cells in an embedding based on a growing suite of feature sets."
+readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+keywords = ["cell-search", "neuroscience", "embedding", "dash", "visualization"]
 dependencies = [
     "caveclient>=8.0.1",
+    "chardet<6",
     "cloud-volume>=12.12.1",
     "dash>=4.0.0",
     "imageryclient>=1.0.4",
@@ -26,8 +30,26 @@ authors = [
 ]
 
 classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
     "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Topic :: Scientific/Engineering :: Visualization",
 ]
+
+[project.urls]
+Homepage = "https://github.com/lelabbady/cell_search_app"
+Repository = "https://github.com/lelabbady/cell_search_app"
+Documentation = "https://lelabbady.github.io/cell_search/"
+Issues = "https://github.com/lelabbady/cell_search_app/issues"
+
+[project.scripts]
+cell-search = "cell_search.cli:main"
 
 [dependency-groups]
 dev = [
@@ -50,6 +72,7 @@ docs = [
 ]
 
 [tool.uv]
+exclude-newer = "14 days"
 default-groups = [
     "dev",
     "lint",
@@ -107,6 +130,18 @@ help = "Bump the version number in the project. Use with 'patch', 'minor', or 'm
 [tool.poe.tasks.test]
 cmd = "uv run pytest --cov=cell_search tests"
 help = "Run pytest with code coverage."
+
+[tool.poe.tasks.lint]
+cmd = "uv run ruff check src/ tests/"
+help = "Run ruff checks."
+
+[tool.poe.tasks.build]
+cmd = "uv build"
+help = "Build wheel and source distribution."
+
+[tool.poe.tasks.pre-release]
+cmd = "poe test && poe lint && poe build"
+help = "Run validation checks before publishing."
 
 [tool.poe.tasks.doc-preview]
 cmd = "uv run mkdocs serve"
