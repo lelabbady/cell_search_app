@@ -12,17 +12,10 @@ license = "MIT"
 license-files = ["LICENSE"]
 keywords = ["cell-search", "neuroscience", "embedding", "dash", "visualization"]
 dependencies = [
-    "caveclient>=8.0.1",
-    "chardet<6",
-    "cloud-volume>=12.12.1",
     "dash>=4.0.0",
-    "imageryclient>=1.0.4",
-    "matplotlib>=3.10.8",
     "nglui>=4.7.1",
     "pandas>=2.3.3",
-    "pyperclip>=1.11.0",
     "scikit-learn>=1.7.2",
-    "seaborn>=0.13.2",
     "dash-connectivity-viewer",
 ]
 authors = [
@@ -128,7 +121,7 @@ cmd = "uv run bump-my-version bump"
 help = "Bump the version number in the project. Use with 'patch', 'minor', or 'major' to specify the version change."
 
 [tool.poe.tasks.test]
-cmd = "uv run pytest --cov=cell_search tests"
+cmd = "uv run python -m pytest --cov=cell_search tests"
 help = "Run pytest with code coverage."
 
 [tool.poe.tasks.lint]
